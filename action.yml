@@ -3,35 +3,321 @@ name: 'SOFA Setup Action'
 description: 'Setup everything needed to build a SOFA plugin'
 inputs:
   sofa_root:
-    description: 'SOFA install directory'
+    description: 'SOFA install directory to get Regression binary, set SOFA_ROOT variable and append the PYTHONPATH env variable'
     required: true
-  scenes_path:
-    description: 'Scene test directory'
+  sofa_version:
+    description: 'Version of SOFA used. Needed to know which binary verison of Regression to use (either master or a release e.g. v24.12)'
     required: true
-  regression_file_path:
-    description: 'Regression test configuration file directory'
+  src_dir:
+    description: 'Directory of the sources of the plugin to be tested (regression file will be looked for in example folder)'
     required: true
-  regression_reference_path:
-    description: 'Regression test reference directory'
+  build_dir:
+    description: 'Build directory of the plugin. Used to include bindings if some are compiled by this plugin'
     required: true
+  output_dir:
+    description: 'Directory where to dump logs and results of tests. Will be created if it does not exist'
+    required: true
+  python_exe:
+    description: 'path to python executable'
+    required: true
+  run_unit_tests:
+    description: 'If true, will run the unit tests found in the build_dir/bin'
+    required: false
+    default: 'true'
+  run_scene_tests:
+    description: 'If true, will run all the scene found under src_dir/examples'
+    required: false
+    default: 'true'
+  run_regression_tests:
+    description: 'If true, will run the regression tests found in the src_dir/examples'
+    required: false
+    default: 'true'
+  nb_parallel_threads:
+    description: 'Tests will be run in parallel, this is the maximum number of thread allowed'
+    required: false
+    default: '1'
+  ci_dir:
+    description: 'Directory of the clone of the ci repository. If none is given, the plugin will be fetched by this action'
+    required: false
+  regression_dir:
+    description: 'Directory of the clone of the Regression repository. If none is given, the plugin will be fetched by this action'
+    required: false
+  publish_logs:
+    description: 'Boolean stating if the logs should be directly published by the action'
+    required: false
+    default: 'true'
 outputs:
+  unit_test_results:
+    description: "Log file containing scene tests results"
+    value: ${{ steps.set-env-vars.outputs.scene_test_results_path }}
+  unit_test_results_path:
+    description: "Log file containing scene tests results"
+    value: ${{ steps.set-env-vars.outputs.scene_test_results_path }}
   scene_test_results:
+    description: "Log file containing scene tests results"
+    value: ${{ steps.set-env-vars.outputs.scene_test_results_path }}
+  scene_test_results_path:
     description: "Log file containing scene tests results"
     value: ${{ steps.set-env-vars.outputs.scene_test_results_path }}
   regression_test_results:
     description: "Log file containing regression tests results"
     value: ${{ steps.set-env-vars.outputs.regression_test_results_path }}
+  regression_test_results_path:
+    description: "Log file containing regression tests results"
+    value: ${{ steps.set-env-vars.outputs.regression_test_results_path }}
 
-# Action code
 runs:
   using: "composite"
   steps:
-    - name: Launch scene tests
-      shell: bash
-      run: |
-        echo TODO
-    - name: Launch regression tests
-      shell: bash
-      run: |
-        echo TODO
 
+    - name: Clone missing CI plugin 
+      uses: actions/checkout@v4
+      if: inputs.ci_dir == ''
+      with:
+        repository: 'bakpaul/ci'
+        ref: 'jenkins_gha_migration'
+        path: ci
+
+    - name: Clone missing Regression plugin 
+      uses: actions/checkout@v4
+      if: inputs.regression_dir == ''
+      with:
+        repository: 'sofa-framework/Regression'
+        ref: 'master'
+        path: Regression
+
+    - name: Setup environement for tests
+      shell: bash
+      run: |
+
+
+
+        if [[ "$RUNNER_OS" == "Windows" ]]; then
+          WORKSPACE_DIR=$(echo "${{ github.workspace }}" | tr '\\' '/' | sed 's/^\([A-Za-z]\):/\/\L\1/')
+          BUILD_DIR=$(echo "${{ inputs.build_dir }}" | tr '\\' '/' | sed 's/^\([A-Za-z]\):/\/\L\1/')
+          SRC_DIR=$(echo "${{ inputs.src_dir }}" | tr '\\' '/' | sed 's/^\([A-Za-z]\):/\/\L\1/')
+          SOFA_ROOT=$(echo "${{ inputs.sofa_root }}" | tr '\\' '/' | sed 's/^\([A-Za-z]\):/\/\L\1/')
+          OUTPUT_DIR=$(echo "${{ inputs.output_dir }}" | tr '\\' '/' | sed 's/^\([A-Za-z]\):/\/\L\1/')
+          OUTPUT_DIR_FOR_GTEST=$(echo "${{ inputs.output_dir }}" | tr '\\' '/')
+          CI_DIR=$(echo "${{ inputs.ci_dir }}" | tr '\\' '/' | sed 's/^\([A-Za-z]\):/\/\L\1/')
+          REGRESSION_DIR=$(echo "${{ inputs.regression_dir }}" | tr '\\' '/' | sed 's/^\([A-Za-z]\):/\/\L\1/')
+        else
+          WORKSPACE_DIR="${{ github.workspace }}"
+          BUILD_DIR="${{ inputs.build_dir }}"
+          SRC_DIR="${{ inputs.src_dir }}"
+          SOFA_ROOT="${{ inputs.sofa_root }}"
+          OUTPUT_DIR="${{ inputs.output_dir }}"
+          OUTPUT_DIR_FOR_GTEST=$OUTPUT_DIR
+          CI_DIR="${{ inputs.ci_dir }}"
+          REGRESSION_DIR="${{ inputs.regression_dir }}"
+
+        fi
+
+        if [[ -z "$OUTPUT_DIR" ]]; then
+            OUTPUT_DIR="$WORKSPACE_DIR/output"
+        fi
+        if [[ ! -d "$OUTPUT_DIR" ]]; then
+            mkdir -p "$OUTPUT_DIR"
+        fi
+
+        if [[ -z "$CI_DIR" ]]; then
+            CI_DIR="$WORKSPACE_DIR/ci"
+        fi
+
+        if [[ -z "$REGRESSION_DIR" ]]; then
+            REGRESSION_DIR="$WORKSPACE_DIR/Regression"
+        fi
+
+        echo "WORKSPACE_DIR=$WORKSPACE_DIR" >> $GITHUB_ENV
+        echo "CI_DIR=$CI_DIR" >> $GITHUB_ENV
+        echo "REGRESSION_DIR=$REGRESSION_DIR" >> $GITHUB_ENV
+        echo "BUILD_DIR=$BUILD_DIR" >> $GITHUB_ENV
+        echo "SRC_DIR=$SRC_DIR" >> $GITHUB_ENV
+        echo "OUTPUT_DIR=$OUTPUT_DIR" >> $GITHUB_ENV
+        echo "OUTPUT_DIR_FOR_GTEST=$OUTPUT_DIR_FOR_GTEST" >> $GITHUB_ENV
+        echo "SOFA_ROOT=$SOFA_ROOT" >> $GITHUB_ENV
+        
+        ##Install Regression release
+        #mkdir -p "${{ runner.temp }}/regression_tmp"
+        #curl --output "${{ runner.temp }}/regression_tmp/${RUNNER_OS}.zip" -L https://github.com/sofa-framework/regression/releases/download/release-master/Regression_test_master_for-SOFA-${{ inputs.sofa_version }}_${RUNNER_OS}.zip
+        #unzip -qq "${{ runner.temp }}/regression_tmp/${RUNNER_OS}.zip" -d "$WORKSPACE_DIR"
+        #mv "$WORKSPACE_DIR/Regression_test_master_for-SOFA-${{ inputs.sofa_version }}_${RUNNER_OS}/bin/*" "$SOFA_ROOT/bin/"
+        chmod +x $SOFA_ROOT/bin/Regression_*
+        echo "REGRESSION_BINARY_DIR=$SOFA_ROOT" >> $GITHUB_ENV
+
+        if [[ "$RUNNER_OS" == "Windows" ]]; then
+
+          echo "$BUILD_DIR/lib" >> $GITHUB_PATH
+          echo "$BUILD_DIR/bin" >> $GITHUB_PATH
+
+          pythonroot="$(dirname "${{ inputs.python_exe }}")"
+          pythonroot=$(echo "$pythonroot" | tr '\\' '/' | sed 's/^\([A-Za-z]\):/\/\L\1/')
+          echo "$pythonroot" >> $GITHUB_PATH
+          echo "$pythonroot/DLLs" >> $GITHUB_PATH
+          echo "$pythonroot/Lib" >> $GITHUB_PATH
+
+          echo "$SOFA_ROOT/plugins/SofaPython3/bin" >> $GITHUB_PATH
+          echo "SOFA_PLUGIN_PATH=$BUILD_DIR/bin" | tee -a $GITHUB_ENV
+           
+        else
+          echo "SOFA_PLUGIN_PATH=$BUILD_DIR/lib" | tee -a $GITHUB_ENV
+          echo "SOFA_ROOT=$SOFA_ROOT"  | tee -a $GITHUB_ENV
+        fi
+
+        if [[ "$RUNNER_OS" == "macOS" ]]; then
+          echo "DYLD_LIBRARY_PATH=$BUILD_DIR/lib:$SOFA_ROOT/lib:$SOFA_ROOT/plugins/SofaPython3/lib:$DYLD_LIBRARY_PATH" | tee -a $GITHUB_ENV
+        fi
+
+        # Install GNU timeout on macOS (not available by default)
+        if [[ "$RUNNER_OS" == "macOS" ]]; then
+          if ! command -v timeout &> /dev/null; then
+            echo "Installing GNU timeout on macOS..."
+            brew install coreutils
+            echo "/usr/local/opt/coreutils/libexec/gnubin" >> $GITHUB_PATH
+          fi
+        fi
+
+        if [[ "$RUNNER_OS" == "Linux" ]]; then
+          echo "LD_LIBRARY_PATH=$BUILD_DIR/lib:$SOFA_ROOT/lib:$SOFA_ROOT/plugins/SofaPython3/lib:$LD_LIBRARY_PATH" | tee -a $GITHUB_ENV
+        fi
+
+        # Setup PYTHONPATH for SofaPython3 module
+        SOFA_PYTHON_PATH="$SOFA_ROOT/plugins/SofaPython3/lib/python3/site-packages"
+        
+        # Check if the path exists, if not try common alternatives
+        if [[ ! -d "$SOFA_PYTHON_PATH" ]]; then
+          # Try with specific Python versions
+          for pyver in "python3.12" "python3.10" "python3.9" "python3.8" "python3.7"; do
+            if [[ -d "$SOFA_ROOT/plugins/SofaPython3/lib/$pyver/site-packages" ]]; then
+              SOFA_PYTHON_PATH="$SOFA_ROOT/plugins/SofaPython3/lib/$pyver/site-packages"
+              break
+            fi
+          done
+        fi
+        
+         if [[ "$RUNNER_OS" == "Windows" ]]; then
+           # On Windows, use semicolon as path separator instead of colon
+           # Only add semicolon if PYTHONPATH is not empty
+           if [[ -n "$PYTHONPATH" ]]; then
+             echo "PYTHONPATH=$SOFA_PYTHON_PATH;$PYTHONPATH" | tee -a $GITHUB_ENV
+           else
+             echo "PYTHONPATH=$SOFA_PYTHON_PATH" | tee -a $GITHUB_ENV
+           fi
+         else
+           echo "PYTHONPATH=$SOFA_PYTHON_PATH:$PYTHONPATH" | tee -a $GITHUB_ENV
+         fi
+
+    - name: Install missing pip packages
+      shell: bash
+      run: |
+        python3 -m pip install prettytable
+
+    - name: Launch unit tests
+      if: always() && inputs.run_unit_tests == 'true'
+      shell: bash
+      run: |
+
+
+        echo "Launching \" /bin/bash \"$CI_DIR/scripts/unit-tests.sh\" run unit \"$BUILD_DIR\" \"$SRC_DIR\" \"$OUTPUT_DIR_FOR_GTEST\" ${{ inputs.nb_parallel_threads }}\""
+        /bin/bash "$CI_DIR/scripts/unit-tests.sh" run unit "$BUILD_DIR" "$SRC_DIR" "$OUTPUT_DIR_FOR_GTEST" ${{ inputs.nb_parallel_threads }}
+        /bin/bash "$CI_DIR/scripts/unit-tests.sh" print-summary unit "$BUILD_DIR" "$SRC_DIR" "$OUTPUT_DIR_FOR_GTEST" ${{ inputs.nb_parallel_threads }}
+
+        echo "tests_suites=$(/bin/bash "$CI_DIR/scripts/unit-tests.sh" count-test-suites unit $BUILD_DIR $SRC_DIR $OUTPUT_DIR_FOR_GTEST)" > $OUTPUT_DIR/unit-tests/unit-tests_results.txt
+        echo "tests_total=$(/bin/bash "$CI_DIR/scripts/unit-tests.sh" count-tests unit $BUILD_DIR $SRC_DIR $OUTPUT_DIR_FOR_GTEST)" >> $OUTPUT_DIR/unit-tests/unit-tests_results.txt
+        echo "tests_disabled=$(/bin/bash "$CI_DIR/scripts/unit-tests.sh" count-disabled unit $BUILD_DIR $SRC_DIR $OUTPUT_DIR_FOR_GTEST)" >> $OUTPUT_DIR/unit-tests/unit-tests_results.txt
+        echo "tests_failures=$(/bin/bash "$CI_DIR/scripts/unit-tests.sh" count-failures unit $BUILD_DIR $SRC_DIR $OUTPUT_DIR_FOR_GTEST)" >> $OUTPUT_DIR/unit-tests/unit-tests_results.txt
+        echo "tests_errors=$(/bin/bash "$CI_DIR/scripts/unit-tests.sh" count-errors unit $BUILD_DIR $SRC_DIR $OUTPUT_DIR_FOR_GTEST)" >> $OUTPUT_DIR/unit-tests/unit-tests_results.txt
+        echo "tests_duration=$(/bin/bash "$CI_DIR/scripts/unit-tests.sh" count-durations unit $BUILD_DIR $SRC_DIR $OUTPUT_DIR_FOR_GTEST)" >> $OUTPUT_DIR/unit-tests/unit-tests_results.txt
+        
+        python3 "$CI_DIR/scripts/exctractErrorFromXML.py" "$OUTPUT_DIR/unit-tests/reports" "$OUTPUT_DIR/unit-tests"
+
+
+    - name: Launch scene tests
+      if: always() && inputs.run_scene_tests == 'true'
+      shell: bash
+      run: |
+        echo "Launching \" /bin/bash \"$CI_DIR/scripts/scene-tests.sh\" run \"$SOFA_ROOT\" \"$SRC_DIR\" \"$OUTPUT_DIR\" ${{ inputs.nb_parallel_threads }}\""
+        /bin/bash "$CI_DIR/scripts/scene-tests.sh" run "$SOFA_ROOT" "$SRC_DIR" "$OUTPUT_DIR" ${{ inputs.nb_parallel_threads }}
+        /bin/bash "$CI_DIR/scripts/scene-tests.sh" print-summary "$SOFA_ROOT" "$SRC_DIR" "$OUTPUT_DIR" ${{ inputs.nb_parallel_threads }}
+
+        echo "scenes_total=$(/bin/bash $CI_DIR/scripts/scene-tests.sh count-tested-scenes $BUILD_DIR $SRC_DIR $OUTPUT_DIR)" > $OUTPUT_DIR/scene-tests/scene-tests_results.txt
+        echo "scenes_successes=$(/bin/bash "$CI_DIR/scripts/scene-tests.sh" count-successes $BUILD_DIR $SRC_DIR $OUTPUT_DIR)" >> $OUTPUT_DIR/scene-tests/scene-tests_results.txt
+        echo "scenes_errors=$(/bin/bash "$CI_DIR/scripts/scene-tests.sh" count-errors $BUILD_DIR $SRC_DIR $OUTPUT_DIR)" >> $OUTPUT_DIR/scene-tests/scene-tests_results.txt
+        echo "scenes_crashes=$(/bin/bash "$CI_DIR/scripts/scene-tests.sh" count-crashes $BUILD_DIR $SRC_DIR $OUTPUT_DIR)" >> $OUTPUT_DIR/scene-tests/scene-tests_results.txt
+        echo "scenes_duration=$(/bin/bash "$CI_DIR/scripts/scene-tests.sh" count-durations $BUILD_DIR $SRC_DIR $OUTPUT_DIR)" >> $OUTPUT_DIR/scene-tests/scene-tests_results.txt
+
+
+        if [[ -f "$OUTPUT_DIR/scene-tests/reports/crashes.txt" && "$(cat "$OUTPUT_DIR/scene-tests/reports/crashes.txt")" != "" ]]; then
+            cp $OUTPUT_DIR/scene-tests/reports/crashes.txt $OUTPUT_DIR/scene-tests_crashes
+        fi
+        if [[ -f "$OUTPUT_DIR/scene-tests/reports/errors.txt" && "$(cat "$OUTPUT_DIR/scene-tests/reports/errors.txt")" != "" ]]; then
+            cp $OUTPUT_DIR/scene-tests/reports/errors.txt $OUTPUT_DIR/scene-tests_errors
+        fi
+
+
+    - name: Launch regression tests
+      if: always() && inputs.run_regression_tests == 'true'
+      shell: bash
+      run: |
+        echo "Launching \" /bin/bash \"$CI_DIR/scripts/unit-tests.sh\" run regression \"$REGRESSION_BINARY_DIR\" \"$SRC_DIR\" \"$OUTPUT_DIR_FOR_GTEST\" ${{ inputs.nb_parallel_threads }}\""
+        /bin/bash "$CI_DIR/scripts/unit-tests.sh" run regression "$REGRESSION_BINARY_DIR" "$SRC_DIR" "$OUTPUT_DIR_FOR_GTEST" ${{ inputs.nb_parallel_threads }}
+        /bin/bash "$CI_DIR/scripts/unit-tests.sh" print-summary regression "$REGRESSION_BINARY_DIR" "$SRC_DIR" "$OUTPUT_DIR_FOR_GTEST" ${{ inputs.nb_parallel_threads }}
+
+        echo "regressions_suites=$(/bin/bash "$CI_DIR/scripts/unit-tests.sh" count-test-suites regression $REGRESSION_BINARY_DIR $SRC_DIR $OUTPUT_DIR_FOR_GTEST )" > $OUTPUT_DIR/regression-tests/regression-tests_results.txt
+        echo "regressions_total=$(/bin/bash "$CI_DIR/scripts/unit-tests.sh" count-tests regression $REGRESSION_BINARY_DIR $SRC_DIR $OUTPUT_DIR_FOR_GTEST )" >> $OUTPUT_DIR/regression-tests/regression-tests_results.txt
+        echo "regressions_disabled=$(/bin/bash "$CI_DIR/scripts/unit-tests.sh" count-disabled regression $REGRESSION_BINARY_DIR $SRC_DIR $OUTPUT_DIR_FOR_GTEST )" >> $OUTPUT_DIR/regression-tests/regression-tests_results.txt
+        echo "regressions_failures=$(/bin/bash "$CI_DIR/scripts/unit-tests.sh" count-failures regression $REGRESSION_BINARY_DIR $SRC_DIR $OUTPUT_DIR_FOR_GTEST )" >> $OUTPUT_DIR/regression-tests/regression-tests_results.txt
+        echo "regressions_errors=$(/bin/bash "$CI_DIR/scripts/unit-tests.sh" count-errors regression $REGRESSION_BINARY_DIR $SRC_DIR $OUTPUT_DIR_FOR_GTEST )" >> $OUTPUT_DIR/regression-tests/regression-tests_results.txt
+        echo "regressions_duration=$(/bin/bash "$CI_DIR/scripts/unit-tests.sh" count-durations regression $REGRESSION_BINARY_DIR $SRC_DIR $OUTPUT_DIR_FOR_GTEST )" >> $OUTPUT_DIR/regression-tests/regression-tests_results.txt
+ 
+        python3 "$CI_DIR/scripts/exctractErrorFromXML.py" "$OUTPUT_DIR/regression-tests/reports" "$OUTPUT_DIR/regression-tests"
+
+
+    - name: Publish tests logs
+      id: publish-tests-logs
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: tests-logs-${{ runner.os }}
+        path: |
+            ${{ inputs.output_dir }}
+
+
+    - name: Summarize tests results
+      shell: bash
+      run: |
+        if [[ "$(cd "$OUTPUT_DIR" && find . -maxdepth 1 -type f)" != "" ]]; then
+          echo "❌ Tests have resulted in : "
+          echo ""
+          python3 $CI_DIR/scripts/generate-tests-table.py "$OUTPUT_DIR"
+          echo ""
+          echo "#----------------------------------------#"
+          echo "#---------------Quick Logs---------------#"
+          echo "#----------------------------------------#"
+          for testType in 'unit' 'scene' 'regression';
+            do 
+              for errorType in 'errors' 'crashes' 'failures';
+              do
+                if [ -f "$OUTPUT_DIR/${testType}-tests_${errorType}" ]; then 
+                  capitalized="$(echo "${testType:0:1}" | tr '[:lower:]' '[:upper:]')${testType:1}"
+                  echo ""
+                  echo -e "${bold}${capitalized} ${errorType}:${normal}"
+                  echo ""
+                  cat "$OUTPUT_DIR/${testType}-tests_${errorType}"
+                  echo ""
+                  echo "#----------------------------------------#"
+                fi
+              done
+            done
+          echo -e "${bold}You can download all logs here : ${{ steps.publish-tests-logs.outputs.artifact-url }}${normal}"
+          exit 1
+        elif [[ "${{ steps.unit-tests-step.outcome }}" == "failure" || "${{ steps.scene-tests-step.outcome }}" == "failure" || "${{ steps.regression-tests-step.outcome }}" == "failure" ]]; then
+          echo "❌ Something whent wrong during one of the tests steps"
+          echo -e "${bold}Please check this action logs, and download tests logs here: ${{ steps.publish-tests-logs.outputs.artifact-url }}${normal}"
+          exit 1
+        else
+          echo "✅ Tests where successful : "
+          echo ""
+          python3 $CI_DIR/scripts/generate-tests-table.py "$OUTPUT_DIR/"
+          echo ""
+        fi
