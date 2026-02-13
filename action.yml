@@ -74,8 +74,8 @@ runs:
       uses: actions/checkout@v4
       if: inputs.ci_dir == ''
       with:
-        repository: 'bakpaul/ci'
-        ref: 'jenkins_gha_migration'
+        repository: 'sofa-framework/ci'
+        ref: 'master'
         path: ci
 
     - name: Clone missing Regression plugin 
