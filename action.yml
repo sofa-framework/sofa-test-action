@@ -156,11 +156,18 @@ runs:
           echo "$pythonroot/DLLs" >> $GITHUB_PATH
           echo "$pythonroot/Lib" >> $GITHUB_PATH
 
+          if [[ -d "$BUILD_DIR/bin" ]]; then
+            echo "SOFA_PLUGIN_PATH=$BUILD_DIR/bin" | tee -a $GITHUB_ENV          
+          else
+            echo "SOFA_PLUGIN_PATH=$BUILD_DIR" | tee -a $GITHUB_ENV
+          fi
           echo "$SOFA_ROOT/plugins/SofaPython3/bin" >> $GITHUB_PATH
-          echo "SOFA_PLUGIN_PATH=$BUILD_DIR/bin;$BUILD_DIR" | tee -a $GITHUB_ENV
-           
         else
-          echo "SOFA_PLUGIN_PATH=$BUILD_DIR/lib:$BUILD_DIR" | tee -a $GITHUB_ENV
+          if [[ -d "$BUILD_DIR/lib" ]]; then
+            echo "SOFA_PLUGIN_PATH=$BUILD_DIR/lib" | tee -a $GITHUB_ENV          
+          else
+            echo "SOFA_PLUGIN_PATH=$BUILD_DIR" | tee -a $GITHUB_ENV
+          fi
           echo "SOFA_ROOT=$SOFA_ROOT"  | tee -a $GITHUB_ENV
         fi
 
