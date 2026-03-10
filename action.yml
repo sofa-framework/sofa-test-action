@@ -223,35 +223,42 @@ runs:
       if: always() && inputs.run_unit_tests == 'true'
       shell: bash
       run: |
-
+        SECONDS=0
 
         echo "Launching \" /bin/bash \"$CI_DIR/scripts/unit-tests.sh\" run unit \"$BUILD_DIR\" \"$SRC_DIR\" \"$OUTPUT_DIR_FOR_GTEST\" ${{ inputs.nb_parallel_threads }}\""
         /bin/bash "$CI_DIR/scripts/unit-tests.sh" run unit "$BUILD_DIR" "$SRC_DIR" "$OUTPUT_DIR_FOR_GTEST" ${{ inputs.nb_parallel_threads }}
         /bin/bash "$CI_DIR/scripts/unit-tests.sh" print-summary unit "$BUILD_DIR" "$SRC_DIR" "$OUTPUT_DIR_FOR_GTEST" ${{ inputs.nb_parallel_threads }}
+
+        duration=$SECONDS
 
         echo "tests_suites=$(/bin/bash "$CI_DIR/scripts/unit-tests.sh" count-test-suites unit $BUILD_DIR $SRC_DIR $OUTPUT_DIR_FOR_GTEST)" > $OUTPUT_DIR/unit-tests/unit-tests_results.txt
         echo "tests_total=$(/bin/bash "$CI_DIR/scripts/unit-tests.sh" count-tests unit $BUILD_DIR $SRC_DIR $OUTPUT_DIR_FOR_GTEST)" >> $OUTPUT_DIR/unit-tests/unit-tests_results.txt
         echo "tests_disabled=$(/bin/bash "$CI_DIR/scripts/unit-tests.sh" count-disabled unit $BUILD_DIR $SRC_DIR $OUTPUT_DIR_FOR_GTEST)" >> $OUTPUT_DIR/unit-tests/unit-tests_results.txt
         echo "tests_failures=$(/bin/bash "$CI_DIR/scripts/unit-tests.sh" count-failures unit $BUILD_DIR $SRC_DIR $OUTPUT_DIR_FOR_GTEST)" >> $OUTPUT_DIR/unit-tests/unit-tests_results.txt
         echo "tests_errors=$(/bin/bash "$CI_DIR/scripts/unit-tests.sh" count-errors unit $BUILD_DIR $SRC_DIR $OUTPUT_DIR_FOR_GTEST)" >> $OUTPUT_DIR/unit-tests/unit-tests_results.txt
-        echo "tests_duration=$(/bin/bash "$CI_DIR/scripts/unit-tests.sh" count-durations unit $BUILD_DIR $SRC_DIR $OUTPUT_DIR_FOR_GTEST)" >> $OUTPUT_DIR/unit-tests/unit-tests_results.txt
+        echo "tests_duration=$duration" >> $OUTPUT_DIR/unit-tests/unit-tests_results.txt
         
         python3 "$CI_DIR/scripts/exctractErrorFromXML.py" "$OUTPUT_DIR/unit-tests/reports" "$OUTPUT_DIR/unit-tests"
+
 
 
     - name: Launch scene tests
       if: always() && inputs.run_scene_tests == 'true'
       shell: bash
       run: |
+        SECONDS=0
+
         echo "Launching \" /bin/bash \"$CI_DIR/scripts/scene-tests.sh\" run \"$SOFA_ROOT\" \"$SRC_DIR\" \"$OUTPUT_DIR\" ${{ inputs.nb_parallel_threads }}\""
         /bin/bash "$CI_DIR/scripts/scene-tests.sh" run "$SOFA_ROOT" "$SRC_DIR" "$OUTPUT_DIR" ${{ inputs.nb_parallel_threads }}
         /bin/bash "$CI_DIR/scripts/scene-tests.sh" print-summary "$SOFA_ROOT" "$SRC_DIR" "$OUTPUT_DIR" ${{ inputs.nb_parallel_threads }}
+
+        duration=$SECONDS
 
         echo "scenes_total=$(/bin/bash $CI_DIR/scripts/scene-tests.sh count-tested-scenes $BUILD_DIR $SRC_DIR $OUTPUT_DIR)" > $OUTPUT_DIR/scene-tests/scene-tests_results.txt
         echo "scenes_successes=$(/bin/bash "$CI_DIR/scripts/scene-tests.sh" count-successes $BUILD_DIR $SRC_DIR $OUTPUT_DIR)" >> $OUTPUT_DIR/scene-tests/scene-tests_results.txt
         echo "scenes_errors=$(/bin/bash "$CI_DIR/scripts/scene-tests.sh" count-errors $BUILD_DIR $SRC_DIR $OUTPUT_DIR)" >> $OUTPUT_DIR/scene-tests/scene-tests_results.txt
         echo "scenes_crashes=$(/bin/bash "$CI_DIR/scripts/scene-tests.sh" count-crashes $BUILD_DIR $SRC_DIR $OUTPUT_DIR)" >> $OUTPUT_DIR/scene-tests/scene-tests_results.txt
-        echo "scenes_duration=$(/bin/bash "$CI_DIR/scripts/scene-tests.sh" count-durations $BUILD_DIR $SRC_DIR $OUTPUT_DIR)" >> $OUTPUT_DIR/scene-tests/scene-tests_results.txt
+        echo "scenes_duration=$duration" >> $OUTPUT_DIR/scene-tests/scene-tests_results.txt
 
 
         if [[ -f "$OUTPUT_DIR/scene-tests/reports/crashes.txt" && "$(cat "$OUTPUT_DIR/scene-tests/reports/crashes.txt")" != "" ]]; then
@@ -266,16 +273,20 @@ runs:
       if: always() && inputs.run_regression_tests == 'true'
       shell: bash
       run: |
+        SECONDS=0
+
         echo "Launching \" /bin/bash \"$CI_DIR/scripts/unit-tests.sh\" run regression \"$REGRESSION_BINARY_DIR\" \"$SRC_DIR\" \"$OUTPUT_DIR_FOR_GTEST\" ${{ inputs.nb_parallel_threads }}\""
         /bin/bash "$CI_DIR/scripts/unit-tests.sh" run regression "$REGRESSION_BINARY_DIR" "$SRC_DIR" "$OUTPUT_DIR_FOR_GTEST" ${{ inputs.nb_parallel_threads }}
         /bin/bash "$CI_DIR/scripts/unit-tests.sh" print-summary regression "$REGRESSION_BINARY_DIR" "$SRC_DIR" "$OUTPUT_DIR_FOR_GTEST" ${{ inputs.nb_parallel_threads }}
+
+        duration=$SECONDS
 
         echo "regressions_suites=$(/bin/bash "$CI_DIR/scripts/unit-tests.sh" count-test-suites regression $REGRESSION_BINARY_DIR $SRC_DIR $OUTPUT_DIR_FOR_GTEST )" > $OUTPUT_DIR/regression-tests/regression-tests_results.txt
         echo "regressions_total=$(/bin/bash "$CI_DIR/scripts/unit-tests.sh" count-tests regression $REGRESSION_BINARY_DIR $SRC_DIR $OUTPUT_DIR_FOR_GTEST )" >> $OUTPUT_DIR/regression-tests/regression-tests_results.txt
         echo "regressions_disabled=$(/bin/bash "$CI_DIR/scripts/unit-tests.sh" count-disabled regression $REGRESSION_BINARY_DIR $SRC_DIR $OUTPUT_DIR_FOR_GTEST )" >> $OUTPUT_DIR/regression-tests/regression-tests_results.txt
         echo "regressions_failures=$(/bin/bash "$CI_DIR/scripts/unit-tests.sh" count-failures regression $REGRESSION_BINARY_DIR $SRC_DIR $OUTPUT_DIR_FOR_GTEST )" >> $OUTPUT_DIR/regression-tests/regression-tests_results.txt
         echo "regressions_errors=$(/bin/bash "$CI_DIR/scripts/unit-tests.sh" count-errors regression $REGRESSION_BINARY_DIR $SRC_DIR $OUTPUT_DIR_FOR_GTEST )" >> $OUTPUT_DIR/regression-tests/regression-tests_results.txt
-        echo "regressions_duration=$(/bin/bash "$CI_DIR/scripts/unit-tests.sh" count-durations regression $REGRESSION_BINARY_DIR $SRC_DIR $OUTPUT_DIR_FOR_GTEST )" >> $OUTPUT_DIR/regression-tests/regression-tests_results.txt
+        echo "regressions_duration=$duration" >> $OUTPUT_DIR/regression-tests/regression-tests_results.txt
  
         python3 "$CI_DIR/scripts/exctractErrorFromXML.py" "$OUTPUT_DIR/regression-tests/reports" "$OUTPUT_DIR/regression-tests"
 
