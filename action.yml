@@ -20,6 +20,9 @@ inputs:
   python_exe:
     description: 'path to python executable'
     required: true
+  python_path:
+    description: 'Custom path to append to the PYTHONPATH environnement variable of the action env'
+    required: false
   run_unit_tests:
     description: 'If true, will run the unit tests found in the build_dir/bin'
     required: false
@@ -200,6 +203,14 @@ runs:
               break
             fi
           done
+        fi
+
+        if [[ ! -z "${{ inputs.python_path }}" ]]; then
+            if [[ "$RUNNER_OS" == "Windows" ]]; then
+              SOFA_PYTHON_PATH="$SOFA_PYTHON_PATH;${{ inputs.python_path }}"
+            else
+              SOFA_PYTHON_PATH="$SOFA_PYTHON_PATH:${{ inputs.python_path }}"            
+            fi
         fi
         
          if [[ "$RUNNER_OS" == "Windows" ]]; then
